@@ -29,7 +29,7 @@ optimizer = BayesianOptimization(
     pbounds=pbounds,
     random_state=42,
     verbose=2)
-optimizer.maximize(init_points=5, n_iter=45)
+optimizer.maximize(init_points=20, n_iter=180)
 best_params = optimizer.max['params']
 print(f"Best parameters: {best_params}")
 
