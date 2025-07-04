@@ -1,0 +1,58 @@
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from bayes_opt import BayesianOptimization
+
+df = pd.read_csv("EtOH.csv")
+X = df.iloc[:, :-1]
+y = df.iloc[:, -1]
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+def bayesopt_objective(n_estimators, max_depth, min_samples_split, min_samples_leaf):
+    val = cross_val_score(
+        RandomForestRegressor(
+            n_estimators=int(n_estimators),
+            max_depth=int(max_depth),
+            min_samples_split=int(min_samples_split),
+            min_samples_leaf=int(min_samples_leaf),
+            random_state=42
+        ),
+        X_train, y_train, scoring='neg_mean_squared_error', cv=5
+    ).mean()
+    return val
+param_bounds = {
+    'n_estimators': (50, 210),
+    'max_depth': (3, 9),
+    'min_samples_split': (2, 20),
+    'min_samples_leaf': (1, 20)
+}
+optimizer = BayesianOptimization(
+    f=bayesopt_objective,
+    pbounds=param_bounds,
+    random_state=1,
+)
+optimizer.maximize(init_points=5, n_iter=25)
+best_params = optimizer.max['params']
+print(f"Best parameters: {best_params}")
+
+best_params['n_estimators'] = int(best_params['n_estimators'])
+best_params['max_depth'] = int(best_params['max_depth'])
+best_params['min_samples_split'] = int(best_params['min_samples_split'])
+best_params['min_samples_leaf'] = int(best_params['min_samples_leaf'])
+rf_best = RandomForestRegressor(**best_params)
+rf_best.fit(X_train, y_train)
+y_pred_train = rf_best.predict(X_train)
+y_pred_test = rf_best.predict(X_test)
+r2_train = r2_score(y_train, y_pred_train)
+rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+r2_test = r2_score(y_test, y_pred_test)
+rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+print(f"Train set R2: {r2_train}")
+print(f"Train set RMSE: {rmse_train}")
+print(f"Test set R2: {r2_test}")
+print(f"Test set RMSE: {rmse_test}")
