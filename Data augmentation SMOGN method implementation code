@@ -1,0 +1,16 @@
+import pandas as pd
+import smogn
+df = pd.read_csv("EtOH.csv")
+df_smogn = smogn.smoter(
+    data = df,
+    y = 'EtOH',
+    k = 5,   # the default value is 5
+    samp_method = 'balance',  ## string ('balance' or 'extreme')
+    ## phi relevance arguments
+    rel_thres = 0.6,         ## positive real number (0 < R < 1), the default is 0.5, the threshold for rarity. The higher the threshold, the higher the boundary for over/undersampling.
+    rel_method = 'auto',      ## string ('auto' or 'manual'), determine the relevance or rarity of the "minority" value in y
+    rel_xtrm_type = 'high',   ## string ('low' or 'both' or 'high'), to respond to which region of the variable y is rare or "few", enter 'high' (default is 'both') to focus on the "few" high values in y to be oversampled.
+    rel_coef = 2.25           ## positive real number (0 < R)), the boxplot coefficient used to automatically determine the extreme value in y (and therefore the "minority" rarity), which is 1.5 by default.
+)
+df_smogn.to_csv('smogn_EtOH.csv', index=False)
+print("The data has been saved to 'smogn_EtOH.csv'")
