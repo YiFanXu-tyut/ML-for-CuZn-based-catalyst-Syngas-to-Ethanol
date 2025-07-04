@@ -1,0 +1,56 @@
+import numpy as np
+import pandas as pd
+from sklearn.utils import shuffle
+from xgboost import XGBRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from bayes_opt import BayesianOptimization
+
+df = pd.read_csv("1.8_smogn_2.csv")
+X = df.iloc[:, :-1]
+y = df.iloc[:, -1]
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+def xgb_evaluate(max_depth, learning_rate, n_estimators, gamma):
+    params = {
+        'max_depth': int(max_depth),
+        'learning_rate': learning_rate,
+        'n_estimators': int(n_estimators),
+        'gamma': gamma,
+        'objective': 'reg:squarederror'
+    }
+    xgb_model = XGBRegressor(**params)
+    cv_result = cross_val_score(xgb_model, X_train, y_train, cv=5, scoring='neg_mean_squared_error').mean()
+    return cv_result
+pbounds = {
+    'max_depth': (3, 10),
+    'learning_rate': (0.0001, 0.1),
+    'n_estimators': (100, 2000),
+    'gamma': (0, 1)
+}
+optimizer = BayesianOptimization(f=xgb_evaluate, pbounds=pbounds, random_state=1)
+optimizer.maximize(init_points=5, n_iter=25)
+best_params = optimizer.max['params']
+best_score = optimizer.max['target']
+print(f"Best parameters: {best_params}")
+print(f"Best cross-validation score : {best_score}")
+
+best_params['n_estimators'] = int(best_params['n_estimators'])
+best_params['max_depth'] = int(best_params['max_depth'])
+xgb_best = XGBRegressor(**best_params)
+xgb_best.fit(X_train, y_train)
+y_pred_train = xgb_best.predict(X_train)
+y_pred_test = xgb_best.predict(X_test)
+
+r2_train = r2_score(y_train, y_pred_train)
+rmse_train = np.sqrt(mean_squared_error(y_train, y_pred_train))
+r2_test = r2_score(y_test, y_pred_test)
+rmse_test = np.sqrt(mean_squared_error(y_test, y_pred_test))
+
+print(f"Train set R2: {r2_train}")
+print(f"Train set RMSE: {rmse_train}")
+print(f"Test set R2: {r2_test}")
+print(f"Test set RMSE: {rmse_test}")
